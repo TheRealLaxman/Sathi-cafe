@@ -27,7 +27,7 @@ app.disable('x-powered-by')
 // Cloudflare is the only public entry point; use its verified client IP.
 app.use((req, res, next) => {
   const ip = req.get('CF-Connecting-IP')
-  if (req.get('CF-Ray') && ip && /^[0-9a-fA-F.:]+$/.test(ip)) req.ip = ip
+  if (req.get('CF-Ray') && ip && /^[0-9a-fA-F.:]+$/.test(ip)) req.headers['x-forwarded-for'] = ip
   next()
 })
 
