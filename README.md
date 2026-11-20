@@ -8,8 +8,7 @@ Frontend: React 19 + Vite + Tailwind CSS 4. Backend: Node.js + Express + MongoDB
 
 ```
 sathi-cafe/
-├── api/index.js          Vercel serverless entry (Express + cached MongoDB connection)
-├── vercel.json           serves dist/ and routes /api and /uploads to the function
+├── vercel.json           Vercel services: Vite app + Express server on one domain
 ├── src/                  frontend
 │   ├── data/cafe.js      name, address, phone, hours, WhatsApp number, social links
 │   ├── data/menu.js      starter menu (only used by seed)
@@ -118,9 +117,9 @@ Owner notifications always include a WhatsApp link. Customer notifications need 
 
 ## Deployment (Vercel behind Cloudflare)
 
-One Vercel project serves both the site and the API. This keeps auth cookies (`SameSite=Strict`) and the CSP `connectSrc 'self'` rule on a single origin — do not put the frontend and API on separate domains.
+One Vercel project with two services (`app` = Vite, `server` = Express) shares a single domain. This keeps auth cookies (`SameSite=Strict`) and the CSP `connectSrc 'self'` rule on one origin — do not put the frontend and API on separate domains. Both services are public: `/api/*` and `/uploads/*` route to `server`, everything else to `app`. No service bindings are needed: the browser calls the public paths and no service calls another.
 
-1. **GitHub → Vercel:** import the repo with root `.`. `vercel.json` sets the Vite build, `dist/` output, Node 22, an install command for both lockfiles, and rewrites `/api/*` and `/uploads/*` to `api/index.js`. Pushes to `main` deploy to production; pull requests get preview deploys.
+1. **GitHub → Vercel:** import the repo with root `.`. `vercel.json` defines the two services and the top-level rewrites; services receive the original request path, so the Express routes keep their `/api` prefixes. Pushes to `main` deploy to production; pull requests get preview deploys.
 2. **Vercel environment variables:** `NODE_ENV=production`, `MONGO_URI`, `JWT_SECRET`, `CLIENT_ORIGIN=https://your-domain.com`, `SITE_URL=https://your-domain.com`, `OWNER_EMAIL`, `OWNER_WHATSAPP`, `RESERVATION_CAPACITY`, `AUDIT_RETENTION_DAYS`, the SMTP variables, and all five `R2_*` variables from the table above. Leave `VITE_API_URL` empty so the browser calls the same origin. Do **not** add `ADMIN_PASSWORD` to Vercel; it is only for the one-off local script.
 3. **Cloudflare R2:** create a bucket and an S3-shaped API token with object read/write/list/delete for that bucket. Put its public domain or a custom domain (for example `cdn.your-domain.com`) in `R2_PUBLIC_BASE_URL`. Add a cache rule with a long TTL for that path.
 4. **MongoDB Atlas:** serverless egress addresses change. Prefer Vercel static outbound IPs with an Atlas IP allowlist; otherwise use a narrowly scoped database user and accept `0.0.0.0/0`.
@@ -128,7 +127,7 @@ One Vercel project serves both the site and the API. This keeps auth cookies (`S
 6. **One-time setup** against the production database from your machine, using a temporary `server/.env` with `NODE_ENV` unset: `npm run admin`, `npm run seed`, and `npm run admins:migrate` for an older database. Delete `ADMIN_PASSWORD` afterwards.
 7. **Smoke test:** `/api/health` returns 200 only when MongoDB is connected; also check `/api/menu`, HTTPS admin login and one upload round-trip through R2.
 
-`api/index.js` reuses the MongoDB connection between warm invocations. With `CF-Ray` present, the Cloudflare `CF-Connecting-IP` header is used as the client IP so rate limits and audit logs are not attributed to the proxy. Legacy `/uploads/<name>` URLs redirect to R2 so existing menu photos keep working.
+The Express service reuses one MongoDB connection between warm invocations. With `CF-Ray` present, the Cloudflare `CF-Connecting-IP` header is used as the client IP so rate limits and audit logs are not attributed to the proxy. Legacy `/uploads/<name>` URLs redirect to R2 so existing menu photos keep working.
 
 ## Handover runbook
 

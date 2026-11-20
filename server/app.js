@@ -5,6 +5,7 @@ import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import mongoose from 'mongoose'
 import { ensureUploadDir, uploadDir, photoName, publicUploadUrl, usesRemoteStorage } from './config/uploads.js'
+import { readyDB } from './config/db.js'
 import authRoutes from './routes/auth.js'
 import menuRoutes from './routes/menu.js'
 import reservationRoutes from './routes/reservations.js'
@@ -30,6 +31,18 @@ app.use((req, res, next) => {
   const ip = req.get('CF-Connecting-IP')
   if (req.get('CF-Ray') && ip && /^[0-9a-fA-F.:]+$/.test(ip)) req.ip = ip
   next()
+})
+
+// Local runs connect in server.js; serverless runs connect here and reuse it.
+app.use(async (req, res, next) => {
+  if (!process.env.JWT_SECRET) return res.status(500).json({ message: 'Server is not configured' })
+  try {
+    await readyDB()
+    next()
+  } catch (err) {
+    console.error('MongoDB connection failed:', err.message)
+    res.status(503).json({ message: 'Service unavailable' })
+  }
 })
 
 app.use(

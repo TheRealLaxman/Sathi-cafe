@@ -33,7 +33,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['server/**/*.js', 'api/**/*.js'],
+    files: ['server/**/*.js'],
     languageOptions: {
       globals: globals.node,
     },
