@@ -33,6 +33,14 @@ describe('Sathi Cafe API', () => {
     expect(res.body.status).toBe('ok')
   })
 
+  it('accepts Cloudflare client IP headers', async () => {
+    const res = await request(app)
+      .get('/api/health')
+      .set('CF-Ray', 'test-ray')
+      .set('CF-Connecting-IP', '203.0.113.10')
+    expect(res.status).toBe(200)
+  })
+
   it('protects admin routes with a cookie session', async () => {
     const cookie = await login()
 
