@@ -1,16 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function DialogBox({ state, onClose }) {
   const [value, setValue] = useState(state.defaultValue ?? '')
   const isPrompt = state.type === 'prompt'
   const cancelResult = isPrompt ? null : false
+  const inputRef = useRef(null)
+  const confirmRef = useRef(null)
 
   useEffect(() => {
+    const previous = document.activeElement
+    ;(isPrompt ? inputRef.current : confirmRef.current)?.focus()
     const onKey = (e) => e.key === 'Escape' && onClose(cancelResult)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, cancelResult])
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      previous?.focus?.()
+    }
+  }, [onClose, cancelResult, isPrompt])
 
+  // Submit dialog and return the chosen value.
   const submit = (e) => {
     e.preventDefault()
     onClose(isPrompt ? value : true)
@@ -25,16 +33,17 @@ export default function DialogBox({ state, onClose }) {
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="dialog-title"
         className="w-full max-w-md bg-cream rounded-2xl p-6 shadow-2xl border border-chai/20"
       >
-        <h2 className="font-display text-2xl font-bold text-ink">
+        <h2 id="dialog-title" className="font-display text-2xl font-bold text-ink">
           {state.title || (isPrompt ? 'Enter a value' : 'Are you sure?')}
         </h2>
         <p className="mt-2 text-ink/70 whitespace-pre-line">{state.message}</p>
 
         {isPrompt && (
           <input
-            autoFocus
+            ref={inputRef}
             type={state.inputType || 'text'}
             min={state.inputType === 'number' ? 0 : undefined}
             value={value}
@@ -54,7 +63,7 @@ export default function DialogBox({ state, onClose }) {
           </button>
           <button
             type="submit"
-            autoFocus={!isPrompt}
+            ref={confirmRef}
             className={`px-5 py-2 rounded-full text-sm font-medium text-cream transition-colors ${
               state.danger ? 'bg-brick hover:bg-ink' : 'bg-chai hover:bg-brick'
             }`}

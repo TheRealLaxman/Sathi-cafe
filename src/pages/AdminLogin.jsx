@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { api, setToken } from '../services/api'
+import { api } from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 
 const inputBase = 'w-full rounded-xl border bg-white/70 px-4 py-2.5 focus:outline-none'
 const fieldClass = (error) =>
@@ -12,6 +13,7 @@ export default function AdminLogin() {
   const [errors, setErrors] = useState({})
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { refresh } = useAuth()
   const notice = useLocation().state?.notice
 
   const submit = async (e) => {
@@ -25,8 +27,8 @@ export default function AdminLogin() {
     if (Object.keys(found).length > 0) return
 
     try {
-      const { token } = await api('/auth/login', { method: 'POST', body: { email, password } })
-      setToken(token)
+      await api('/auth/login', { method: 'POST', body: { email, password } })
+      await refresh()
       navigate('/admin')
     } catch (err) {
       setError(err.message)
@@ -47,6 +49,7 @@ export default function AdminLogin() {
           <input
             className={fieldClass(errors.email)}
             type="email"
+            aria-label="Email"
             placeholder="Email"
             value={email}
             onChange={(e) => {
@@ -61,6 +64,7 @@ export default function AdminLogin() {
           <input
             className={fieldClass(errors.password)}
             type="password"
+            aria-label="Password"
             placeholder="Password"
             value={password}
             onChange={(e) => {

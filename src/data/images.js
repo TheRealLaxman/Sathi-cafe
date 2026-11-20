@@ -6,7 +6,7 @@ export const menuImages = {
   'Pyaj Pakauda': '/images/pyaj-pakauda.webp',
   'Selroti': '/images/selroti.webp',
   'Buff Jhol Momo': '/images/buff-jhol-momo.webp',
-  'Chicken MoMo': '/images/chicken-momo.webp',
+  'Chicken Momo': '/images/chicken-momo.webp',
   'Veg Fried Momo': '/images/veg-momo.webp',
   'Garlic Bread': '/images/garlic-bread.webp',
   'Margherita Pizza': '/images/margherita-pizza.webp',
@@ -16,4 +16,11 @@ export const menuImages = {
   'Corn Dog': '/images/corn-dog.webp',
   'Laphing': '/images/laphing.webp',
   'Thukpa': '/images/thukpa.webp',
+}
+
+// Find the image path for a menu item.
+export const findMenuImage = (name) => {
+  if (!name) return undefined
+  const key = Object.keys(menuImages).find((k) => k.toLowerCase() === String(name).trim().toLowerCase())
+  return key ? menuImages[key] : undefined
 }

@@ -21,7 +21,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2.5 font-display text-2xl font-extrabold text-chai">
           {logoOk && (
             <img
-              src="/logo.png"
+              src="/logo.webp"
               alt=""
               className="h-10 w-10 object-contain"
               onError={() => setLogoOk(false)}

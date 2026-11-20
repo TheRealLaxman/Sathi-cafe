@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+// Reveal children when scrolled into view.
 export default function Reveal({ children, delay = 0, className = '' }) {
   const ref = useRef(null)
   const [shown, setShown] = useState(false)

@@ -4,7 +4,7 @@ const reservationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
     phone: { type: String, required: true, trim: true, maxlength: 20 },
-    // date is YYYY-MM-DD, time is HH:mm
+    email: { type: String, default: '', trim: true, maxlength: 120 },
     date: { type: String, required: true },
     time: { type: String, required: true },
     guests: { type: Number, required: true, min: 1, max: 20 },

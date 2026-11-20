@@ -1,5 +1,8 @@
 import nodemailer from 'nodemailer'
 
+export const mailConfigured = () => Boolean(process.env.SMTP_HOST)
+
+// Send an email using the configured SMTP server.
 export async function sendMail({ to, subject, text }) {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM } = process.env
 
@@ -16,6 +19,7 @@ export async function sendMail({ to, subject, text }) {
     host: SMTP_HOST,
     port: Number(SMTP_PORT) || 587,
     secure: Number(SMTP_PORT) === 465,
+    requireTLS: true,
     auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
   })
 

@@ -4,15 +4,38 @@ import { api } from '../services/api'
 import { whatsappLink } from '../data/cafe'
 import ItemPhoto from '../components/ItemPhoto'
 
+const CART_KEY = 'sathi_cart'
 const qtyBtn =
   'w-9 h-9 rounded-full border border-chai/40 text-chai text-lg leading-none hover:bg-chai hover:text-cream transition-colors'
+const field =
+  'w-full rounded-xl border border-chai/30 bg-white/70 px-4 py-2.5 focus:outline-none focus:border-chai'
+
+// Read the saved cart from localStorage.
+function readCart() {
+  try {
+    const raw = localStorage.getItem(CART_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
 
 export default function Menu() {
   const [items, setItems] = useState([])
   const [active, setActive] = useState('All')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [cart, setCart] = useState({})
+  const [cart, setCart] = useState(readCart)
+  const [checkout, setCheckout] = useState(false)
+  const [form, setForm] = useState({ name: '', phone: '', email: '', note: '' })
+  const [formError, setFormError] = useState('')
+  const [placing, setPlacing] = useState(false)
+  const [placed, setPlaced] = useState(null)
+
+  useEffect(() => {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart))
+  }, [cart])
 
   const selectCategory = (c) => {
     if (c === active) return
@@ -63,9 +86,99 @@ export default function Menu() {
     'Pickup / Table no.:',
   ].join('\n')
 
+  // Build WhatsApp text from a saved order.
+  const savedText = (order) =>
+    [
+      `Order ${order._id.slice(-6).toUpperCase()}`,
+      `Name: ${order.name}`,
+      `Phone: ${order.phone}`,
+      '',
+      ...order.items.map((l) => `${l.qty} × ${l.name} - Rs. ${l.qty * l.price}`),
+      '',
+      `Total: Rs. ${order.total}`,
+    ].join('\n')
+
+  // Validate and save the customer order.
+  const submit = async (e) => {
+    e.preventDefault()
+    setFormError('')
+    if (!form.name.trim()) return setFormError('Please enter your name')
+    if (form.phone.replace(/\D/g, '').length < 7) return setFormError('Please enter a valid phone number')
+    if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) {
+      return setFormError('Please enter a valid email address')
+    }
+
+    setPlacing(true)
+    try {
+      const order = await api('/orders', {
+        method: 'POST',
+        body: {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          note: form.note.trim(),
+          items: lines.map((l) => ({ id: l.item._id, qty: l.qty })),
+        },
+      })
+      setPlaced(order)
+      setCart({})
+      setCheckout(false)
+      setForm({ name: '', phone: '', email: '', note: '' })
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setPlacing(false)
+    }
+  }
+
   return (
     <section className={`max-w-6xl mx-auto px-5 py-12 ${count > 0 ? 'pb-32' : ''}`}>
       <h1 className="font-display text-4xl md:text-5xl font-extrabold text-chai mb-8">Our Menu</h1>
+
+      {placed && (
+        <div className="mb-8 rounded-2xl bg-leaf/10 border border-leaf/30 p-5 space-y-3" aria-live="polite">
+          <p className="font-medium text-leaf">Order saved! We'll get it ready.</p>
+          <p className="text-sm text-ink/70">
+            Send the details to us on WhatsApp too, so we can reply quickly.
+          </p>
+          <a
+            href={whatsappLink(savedText(placed))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block bg-leaf text-cream px-5 py-2 rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Send order on WhatsApp
+          </a>
+          <button
+            className="ml-2 px-4 py-2 rounded-full border border-leaf/30 text-sm hover:border-leaf transition-colors"
+            onClick={() => setPlaced(null)}
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {checkout && count > 0 && (
+        <form onSubmit={submit} noValidate className="mb-8 bg-white/60 border border-chai/20 rounded-2xl p-5 grid md:grid-cols-2 gap-3">
+          <h2 className="md:col-span-2 font-display text-2xl font-bold">Your details</h2>
+          <input aria-label="Your name" className={field} placeholder="Your name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input aria-label="Phone number" className={field} type="tel" placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <input aria-label="Email for updates" className={field} type="email" placeholder="Email for updates (optional)" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input aria-label="Order note" className={field} placeholder="Note, e.g. less sugar (optional)" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          {formError && <p className="md:col-span-2 text-sm text-brick" role="alert">{formError}</p>}
+          <div className="md:col-span-2 flex flex-wrap gap-3">
+            <button
+              disabled={placing}
+              className="bg-chai text-cream px-6 py-2.5 rounded-full font-medium hover:bg-brick transition-colors disabled:opacity-60"
+            >
+              {placing ? 'Saving...' : 'Save order'}
+            </button>
+            <button type="button" className="text-sm text-ink/60 px-3" onClick={() => setCheckout(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-10">
         {categories.map((c) => (
@@ -158,10 +271,16 @@ export default function Menu() {
               href={whatsappLink(orderText)}
               target="_blank"
               rel="noopener noreferrer"
+              className="text-sm text-cream/70 hover:text-cream px-3"
+            >
+              WhatsApp
+            </a>
+            <button
+              onClick={() => setCheckout((v) => !v)}
               className="bg-chai text-cream rounded-full px-5 py-2.5 text-sm font-medium hover:bg-brick transition-colors"
             >
-              Order on WhatsApp
-            </a>
+              Place order
+            </button>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Reveal from '../components/Reveal'
 import ItemPhoto from '../components/ItemPhoto'
 import { api } from '../services/api'
+import { menu as starterMenu } from '../data/menu'
 
 const highlights = [
   {
@@ -68,7 +69,9 @@ function FloatingChip({ emoji, className, delay = '0s', rotate = '0deg' }) {
 }
 
 export default function Home() {
-  const [picks, setPicks] = useState([])
+  const [picks, setPicks] = useState(() =>
+    starterMenu.filter((i) => i.tags?.includes('popular')).slice(0, 3)
+  )
 
   useEffect(() => {
     api('/menu')
@@ -135,7 +138,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* list is doubled so the marquee loops without a gap */}
       <div className="bg-chai text-cream overflow-hidden py-3 border-y border-ink/10" aria-hidden="true">
         <div className="marquee-track flex">
           {[...ticker, ...ticker].map((item, i) => (
@@ -174,7 +176,7 @@ export default function Home() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {picks.map((item, i) => (
-            <Reveal key={item._id} delay={i * 120}>
+            <Reveal key={item._id || item.id} delay={i * 120}>
               <div className="h-full bg-white/60 rounded-2xl overflow-hidden border border-chai/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                 <ItemPhoto item={item} />
                 <div className="p-5">

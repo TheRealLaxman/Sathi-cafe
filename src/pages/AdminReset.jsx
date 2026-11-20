@@ -49,6 +49,7 @@ export default function AdminReset() {
           <input
             className={fieldClass(errors.password)}
             type="password"
+            aria-label="New password"
             placeholder="New password"
             value={password}
             onChange={(e) => {
@@ -63,6 +64,7 @@ export default function AdminReset() {
           <input
             className={fieldClass(errors.repeat)}
             type="password"
+            aria-label="Type the new password again"
             placeholder="Type it again"
             value={repeat}
             onChange={(e) => {

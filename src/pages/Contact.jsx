@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { api } from '../services/api'
 import { cafe, whatsappLink } from '../data/cafe'
 
-// bookings run 9:00 AM to 11:30 PM, the cafe closes at 12 AM
 const slots = []
 for (let mins = 9 * 60; mins <= 23 * 60 + 30; mins += 30) {
   const h = Math.floor(mins / 60)
@@ -37,11 +36,11 @@ function Field({ label, hint, error, children }) {
 
 function Status({ status }) {
   if (!status) return null
-  return <p className={status.ok ? 'text-leaf' : 'text-brick'}>{status.text}</p>
+  return <p className={status.ok ? 'text-leaf' : 'text-brick'} aria-live="polite">{status.text}</p>
 }
 
 function ReservationForm() {
-  const empty = { name: '', phone: '', date: '', time: '', guests: 2, note: '' }
+  const empty = { name: '', phone: '', email: '', date: '', time: '', guests: 2, note: '' }
   const [form, setForm] = useState(empty)
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState(null)
@@ -54,6 +53,7 @@ function ReservationForm() {
     setErrors({ ...errors, [e.target.name]: '' })
   }
 
+  // Check reservation fields before submitting.
   const validate = () => {
     const found = {}
     if (!form.name.trim()) found.name = 'Please enter your name'
@@ -61,9 +61,17 @@ function ReservationForm() {
     if (!form.date) found.date = 'Please pick a date'
     else if (form.date < today) found.date = 'That date has already passed'
     if (!form.time) found.time = 'Please pick a time'
+    else {
+      const when = new Date(`${form.date}T${form.time}:00+05:45`)
+      if (!isNaN(when) && when.getTime() <= Date.now()) found.time = 'That time has already passed'
+    }
+    if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) {
+      found.email = 'Please enter a valid email address'
+    }
     return found
   }
 
+  // Submit the reservation request to the API.
   const submit = async (e) => {
     e.preventDefault()
     const found = validate()
@@ -84,6 +92,7 @@ function ReservationForm() {
     }
   }
 
+  // Build WhatsApp text for a booking.
   const bookingText = (b) => {
     const timeLabel = slots.find((s) => s.value === b.time)?.label || b.time
     return [
@@ -91,6 +100,7 @@ function ReservationForm() {
       '',
       `Name: ${b.name}`,
       `Phone: ${b.phone}`,
+      b.email ? `Email: ${b.email}` : null,
       `Date: ${b.date}`,
       `Time: ${timeLabel}`,
       `Guests: ${b.guests}`,
@@ -125,6 +135,17 @@ function ReservationForm() {
           name="phone"
           placeholder="98XXXXXXXX"
           value={form.phone}
+          onChange={change}
+        />
+      </Field>
+
+      <Field label="Email for confirmation (optional)" error={errors.email}>
+        <input
+          className={fieldClass(errors.email)}
+          type="email"
+          name="email"
+          placeholder="you@example.com"
+          value={form.email}
           onChange={change}
         />
       </Field>
@@ -181,7 +202,7 @@ function ReservationForm() {
       <Status status={status} />
 
       {booked && (
-        <div className="rounded-xl bg-leaf/10 border border-leaf/30 p-4 space-y-3">
+        <div className="rounded-xl bg-leaf/10 border border-leaf/30 p-4 space-y-3" role="status">
           <p className="text-leaf font-medium">Table requested! We'll confirm soon.</p>
           <p className="text-sm text-ink/70">
             For the fastest reply, send your details to us on WhatsApp too.
@@ -212,6 +233,7 @@ function MessageForm() {
     setErrors({ ...errors, [e.target.name]: '' })
   }
 
+  // Check message fields before submitting.
   const validate = () => {
     const found = {}
     if (!form.name.trim()) found.name = 'Please enter your name'
@@ -220,6 +242,7 @@ function MessageForm() {
     return found
   }
 
+  // Submit the contact message to the API.
   const submit = async (e) => {
     e.preventDefault()
     const found = validate()

@@ -8,11 +8,11 @@ export const cafe = {
   hours: [{ days: 'Every day', time: '9:00 AM to 12:00 AM' }],
   whatsappNumber: '9779821401563',
   social: {
-    // replace with the real page links once the client creates them
     instagram: 'https://www.instagram.com/',
     facebook: 'https://www.facebook.com/',
   },
 }
 
+// Build a WhatsApp link with optional text.
 export const whatsappLink = (text = '') =>
   `https://wa.me/${cafe.whatsappNumber}${text ? `?text=${encodeURIComponent(text)}` : ''}`

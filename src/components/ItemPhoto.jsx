@@ -1,4 +1,4 @@
-import { menuImages } from '../data/images'
+import { findMenuImage } from '../data/images'
 
 const categoryEmoji = {
   Coffee: '☕',
@@ -11,7 +11,7 @@ const categoryEmoji = {
 }
 
 export default function ItemPhoto({ item }) {
-  const src = item.image || menuImages[item.name]
+  const src = item.image || findMenuImage(item.name)
 
   if (src) {
     return (

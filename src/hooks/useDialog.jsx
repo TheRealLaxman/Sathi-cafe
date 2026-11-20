@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import DialogBox from '../components/DialogBox'
 
+// Manage dialog state and promise-based helpers.
 export function useDialog() {
   const [state, setState] = useState(null)
   const resolver = useRef(null)

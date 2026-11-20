@@ -1,9 +1,7 @@
-import dotenv from 'dotenv'
+import './config/env.js'
 import mongoose from 'mongoose'
 import MenuItem from './models/MenuItem.js'
 import { menu } from '../src/data/menu.js'
-
-dotenv.config()
 
 const force = process.argv.includes('--force')
 

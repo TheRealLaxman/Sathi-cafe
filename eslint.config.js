@@ -19,7 +19,20 @@ export default defineConfig([
     },
   },
   {
-    // Backend code runs in Node, not the browser
+    files: ['src/test/**/*.{js,jsx}', 'src/**/*.test.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        afterEach: 'readonly',
+        beforeEach: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        vi: 'readonly',
+      },
+    },
+  },
+  {
     files: ['server/**/*.js'],
     languageOptions: {
       globals: globals.node,

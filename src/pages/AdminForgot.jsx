@@ -51,6 +51,7 @@ export default function AdminForgot() {
               <input
                 className={fieldClass(emailError)}
                 type="email"
+                aria-label="Admin email"
                 placeholder="Admin email"
                 value={email}
                 onChange={(e) => {
