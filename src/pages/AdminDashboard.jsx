@@ -402,7 +402,7 @@ function MenuManager({ can }) {
           {photos.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {photos.map((url) => {
-                const removable = url.startsWith('/uploads/') && can(PERMISSIONS.uploadsWrite)
+                const removable = uploads.some((u) => u.url === url) && can(PERMISSIONS.uploadsWrite)
                 return (
                   <div key={url} className="relative w-14 h-14">
                     <button

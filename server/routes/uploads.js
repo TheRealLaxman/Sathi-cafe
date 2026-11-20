@@ -1,6 +1,4 @@
 import crypto from 'crypto'
-import path from 'node:path'
-import { readdir, unlink } from 'node:fs/promises'
 import { Router } from 'express'
 import multer from 'multer'
 import sharp from 'sharp'
@@ -9,7 +7,7 @@ import { requirePermission } from '../middleware/authorize.js'
 import asyncHandler from '../middleware/asyncHandler.js'
 import { httpError } from '../utils/httpError.js'
 import { PERMISSIONS } from '../config/roles.js'
-import { uploadDir } from '../config/uploads.js'
+import { photoName, publicUploadUrl, listUploads, putUpload, deleteUpload } from '../config/uploads.js'
 import MenuItem from '../models/MenuItem.js'
 import { logAction } from '../services/audit.js'
 
@@ -30,13 +28,13 @@ router.get(
   protect,
   requirePermission(PERMISSIONS.uploadsRead),
   asyncHandler(async (req, res) => {
-    const files = await readdir(uploadDir)
+    const files = await listUploads()
     const images = files
-      .filter((name) => /^[a-f0-9-]+\.webp$/i.test(name))
+      .filter((name) => photoName.test(name))
       .sort()
       .reverse()
       .slice(0, 200)
-      .map((name) => ({ name, url: `/uploads/${name}` }))
+      .map((name) => ({ name, url: publicUploadUrl(name) }))
     res.json(images)
   })
 )
@@ -50,17 +48,19 @@ router.post(
     if (!req.file) throw httpError(400, 'Choose an image to upload')
 
     const name = `${crypto.randomUUID()}.webp`
+    let image
     try {
-      await sharp(req.file.buffer)
+      image = await sharp(req.file.buffer)
         .rotate()
         .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 82 })
-        .toFile(path.join(uploadDir, name))
+        .toBuffer()
     } catch {
       throw httpError(400, 'That file is not a valid image')
     }
 
-    res.status(201).json({ name, url: `/uploads/${name}` })
+    await putUpload(name, image)
+    res.status(201).json({ name, url: publicUploadUrl(name) })
   })
 )
 
@@ -70,13 +70,15 @@ router.delete(
   requirePermission(PERMISSIONS.uploadsWrite),
   asyncHandler(async (req, res) => {
     const name = String(req.params.name)
-    if (!/^[a-f0-9-]+\.webp$/i.test(name)) throw httpError(400, 'Invalid photo name')
+    if (!photoName.test(name)) throw httpError(400, 'Invalid photo name')
 
-    const used = await MenuItem.exists({ image: { $regex: `/uploads/${name}$`, $options: 'i' } })
+    const used = await MenuItem.exists({
+      image: { $regex: `(?:^|/)${name.replace(/\./g, '\\.')}$`, $options: 'i' },
+    })
     if (used) throw httpError(409, 'This photo is used by a menu item. Remove it from the item first.')
 
     try {
-      await unlink(path.join(uploadDir, name))
+      await deleteUpload(name)
     } catch (err) {
       if (err.code === 'ENOENT') throw httpError(404, 'Photo not found')
       throw err

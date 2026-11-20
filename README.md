@@ -8,6 +8,8 @@ Frontend: React 19 + Vite + Tailwind CSS 4. Backend: Node.js + Express + MongoDB
 
 ```
 sathi-cafe/
+├── api/index.js          Vercel serverless entry (Express + cached MongoDB connection)
+├── vercel.json           serves dist/ and routes /api and /uploads to the function
 ├── src/                  frontend
 │   ├── data/cafe.js      name, address, phone, hours, WhatsApp number, social links
 │   ├── data/menu.js      starter menu (only used by seed)
@@ -23,7 +25,7 @@ sathi-cafe/
 ├── server/
 │   ├── app.js            Express app (routes, security middleware)
 │   ├── server.js         DB connection + listener + graceful shutdown
-│   ├── config/           db, env, roles, upload directory
+│   ├── config/           db, env, roles, local/R2 photo storage
 │   ├── models/           MenuItem, Order, Reservation, Message, User, AuditLog
 │   ├── routes/           auth, menu, orders, reservations, messages, uploads, admins, audit
 │   ├── middleware/       auth, authorize, csrf, validation, rate limits, error handler
@@ -64,6 +66,7 @@ Backend (`server/.env`):
 | `OWNER_WHATSAPP` | number included in owner alert links |
 | `RESERVATION_CAPACITY` | total guests allowed per 30-minute slot, default 20 |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | email delivery for password reset and notifications |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL` | Cloudflare R2 photo storage; when set, uploads go to R2 instead of local disk |
 
 Frontend (`.env` at the project root, used at build time):
 
@@ -99,7 +102,7 @@ Login uses httpOnly, Secure, SameSite=Strict cookies. Access tokens last 15 minu
 
 An item's photo comes from its own image link. If empty, the site looks for a built-in photo by name in `src/data/images.js`, then falls back to a category emoji.
 
-Admins can upload JPG/PNG/WEBP/GIF up to 5 MB from the Menu tab. Uploads are resized, stripped of metadata and saved as WebP in `server/uploads/`. The directory must be writable by the service user and is proxied at `/uploads`. Use **Remove image** to clear an item's photo; unused uploaded photos can be permanently deleted with the × on their thumbnail. A photo still used by a menu item cannot be deleted until it is removed from that item.
+Admins can upload JPG/PNG/WEBP/GIF up to 5 MB from the Menu tab. Uploads are resized, stripped of metadata and saved as WebP — to `server/uploads/` in local development, or to Cloudflare R2 when the `R2_*` variables are set (the serverless filesystem is read-only). The local directory must be writable by the service user and is served at `/uploads`; in production `/uploads/<name>` redirects to R2. Use **Remove image** to clear an item's photo; unused uploaded photos can be permanently deleted with the × on their thumbnail. A photo still used by a menu item cannot be deleted until it is removed from that item.
 
 `npm run seed` inside `server/` loads the starter menu. It skips if items already exist, wipes only with `--force`, and refuses to run with `NODE_ENV=production`.
 
@@ -113,13 +116,19 @@ All customer-facing details live in `src/data/cafe.js`. Keep the description and
 
 Owner notifications always include a WhatsApp link. Customer notifications need SMTP. If `SMTP_HOST` is empty, the Forgot-password page explains that the owner must reset the password manually, and no email is sent.
 
-## Deployment checklist
+## Deployment (Vercel behind Cloudflare)
 
-- Build the frontend with `npm run build` and serve the generated `dist/` directory.
-- Run the API with `NODE_ENV=production`, a production `server/.env`, and a writable `server/uploads/` directory.
-- Route `/api` and `/uploads` to the API, or set `VITE_API_URL` at build time if the API is on another origin.
-- Create the owner with `npm run admin`, run `npm run admins:migrate` if upgrading an older database, then remove `ADMIN_PASSWORD`.
-- `/api/health` returns 200 only when MongoDB is connected; use it for monitoring.
+One Vercel project serves both the site and the API. This keeps auth cookies (`SameSite=Strict`) and the CSP `connectSrc 'self'` rule on a single origin — do not put the frontend and API on separate domains.
+
+1. **GitHub → Vercel:** import the repo with root `.`. `vercel.json` sets the Vite build, `dist/` output, Node 22, an install command for both lockfiles, and rewrites `/api/*` and `/uploads/*` to `api/index.js`. Pushes to `main` deploy to production; pull requests get preview deploys.
+2. **Vercel environment variables:** `NODE_ENV=production`, `MONGO_URI`, `JWT_SECRET`, `CLIENT_ORIGIN=https://your-domain.com`, `SITE_URL=https://your-domain.com`, `OWNER_EMAIL`, `OWNER_WHATSAPP`, `RESERVATION_CAPACITY`, `AUDIT_RETENTION_DAYS`, the SMTP variables, and all five `R2_*` variables from the table above. Leave `VITE_API_URL` empty so the browser calls the same origin. Do **not** add `ADMIN_PASSWORD` to Vercel; it is only for the one-off local script.
+3. **Cloudflare R2:** create a bucket and an S3-shaped API token with object read/write/list/delete for that bucket. Put its public domain or a custom domain (for example `cdn.your-domain.com`) in `R2_PUBLIC_BASE_URL`. Add a cache rule with a long TTL for that path.
+4. **MongoDB Atlas:** serverless egress addresses change. Prefer Vercel static outbound IPs with an Atlas IP allowlist; otherwise use a narrowly scoped database user and accept `0.0.0.0/0`.
+5. **Cloudflare:** add the site, point `@` at `cname.vercel-dns.com` (proxied) and redirect `www` to the apex. Keep any `_vercel` verification TXT record DNS-only until Vercel confirms it. Use SSL **Full (strict)**, Always Use HTTPS and HSTS. Bypass cache for `/api/*` and HTML; cache `/assets/*`, `/images/*` and `/uploads/*`. Add WAF rate limits on `/api/auth/*` because the app's in-memory limiter is per function instance.
+6. **One-time setup** against the production database from your machine, using a temporary `server/.env` with `NODE_ENV` unset: `npm run admin`, `npm run seed`, and `npm run admins:migrate` for an older database. Delete `ADMIN_PASSWORD` afterwards.
+7. **Smoke test:** `/api/health` returns 200 only when MongoDB is connected; also check `/api/menu`, HTTPS admin login and one upload round-trip through R2.
+
+`api/index.js` reuses the MongoDB connection between warm invocations. With `CF-Ray` present, the Cloudflare `CF-Connecting-IP` header is used as the client IP so rate limits and audit logs are not attributed to the proxy. Legacy `/uploads/<name>` URLs redirect to R2 so existing menu photos keep working.
 
 ## Handover runbook
 

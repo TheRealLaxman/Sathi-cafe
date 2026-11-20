@@ -4,7 +4,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import mongoose from 'mongoose'
-import { ensureUploadDir, uploadDir } from './config/uploads.js'
+import { ensureUploadDir, uploadDir, photoName, publicUploadUrl, usesRemoteStorage } from './config/uploads.js'
 import authRoutes from './routes/auth.js'
 import menuRoutes from './routes/menu.js'
 import reservationRoutes from './routes/reservations.js'
@@ -24,6 +24,13 @@ await ensureUploadDir()
 const app = express()
 app.set('trust proxy', 1)
 app.disable('x-powered-by')
+
+// Cloudflare is the only public entry point; use its verified client IP.
+app.use((req, res, next) => {
+  const ip = req.get('CF-Connecting-IP')
+  if (req.get('CF-Ray') && ip && /^[0-9a-fA-F.:]+$/.test(ip)) req.ip = ip
+  next()
+})
 
 app.use(
   helmet({
@@ -74,20 +81,29 @@ app.get('/api/config', (req, res) => res.json({ emailEnabled: mailConfigured() }
 app.use('/api', apiLimiter)
 app.use(csrf)
 
-app.use(
-  '/uploads',
-  express.static(uploadDir, {
-    index: false,
-    dotfiles: 'deny',
-    maxAge: '7d',
-    immutable: true,
-    // Set security headers for served uploads.
-    setHeaders(res) {
-      res.setHeader('X-Content-Type-Options', 'nosniff')
-      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
-    },
+if (usesRemoteStorage()) {
+  // Old menu records still point at /uploads/<name>; forward them to R2.
+  app.get('/uploads/:name', (req, res) => {
+    const name = String(req.params.name)
+    if (!photoName.test(name)) return res.status(404).end()
+    res.redirect(302, publicUploadUrl(name))
   })
-)
+} else {
+  app.use(
+    '/uploads',
+    express.static(uploadDir, {
+      index: false,
+      dotfiles: 'deny',
+      maxAge: '7d',
+      immutable: true,
+      // Set security headers for served uploads.
+      setHeaders(res) {
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox")
+      },
+    })
+  )
+}
 
 app.use('/api/auth', authRoutes)
 app.use('/api/menu', menuRoutes)

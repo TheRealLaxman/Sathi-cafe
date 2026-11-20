@@ -1,12 +1,20 @@
 import mongoose from 'mongoose'
 
-// Connect to MongoDB or exit on failure.
+// Connect to MongoDB; callers decide how to handle a failure.
 export default async function connectDB() {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 })
-    console.log('MongoDB connected')
-  } catch (err) {
-    console.error('MongoDB connection failed:', err.message)
-    process.exit(1)
+  await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 })
+  console.log('MongoDB connected')
+}
+
+let connecting
+
+// Reuse one connection across warm serverless invocations.
+export async function readyDB() {
+  if (mongoose.connection.readyState === 1) return
+  if (!connecting) {
+    connecting = connectDB().finally(() => {
+      connecting = undefined
+    })
   }
+  await connecting
 }
