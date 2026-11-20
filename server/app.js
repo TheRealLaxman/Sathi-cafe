@@ -4,7 +4,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import mongoose from 'mongoose'
-import { ensureUploadDir, uploadDir, photoName, publicUploadUrl, usesRemoteStorage } from './config/uploads.js'
+import { uploadDir, photoName, publicUploadUrl, usesRemoteStorage } from './config/uploads.js'
 import { readyDB } from './config/db.js'
 import authRoutes from './routes/auth.js'
 import menuRoutes from './routes/menu.js'
@@ -19,8 +19,6 @@ import { notFound, errorHandler } from './middleware/errorHandler.js'
 import { apiLimiter } from './middleware/limiters.js'
 import { devOrigins, isProd, siteOrigins } from './utils/env.js'
 import { mailConfigured } from './utils/mailer.js'
-
-await ensureUploadDir()
 
 const app = express()
 app.set('trust proxy', 1)
