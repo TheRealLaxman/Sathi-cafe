@@ -24,7 +24,7 @@ export function errorHandler(err, req, res, next) {
   }
   if (status >= 500) {
     console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`, err)
-    if (isProd()) message = 'Server error'
+    if (isProd()) message = `Server error: ${err.message}`
   }
 
   if (res.headersSent) return next(err)
